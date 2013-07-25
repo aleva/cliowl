@@ -28,7 +28,7 @@ foreach ($tokens as $token)
 	{
 		if($token == 'fetch')
 		{
-			echo Cliowl::fetch();
+			echo Cliowl::get_fetch();
 		}
 		else
 		{
