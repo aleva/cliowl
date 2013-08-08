@@ -4,6 +4,7 @@
 		'SERVER' => 'localhost',
 		'DATABASE' => 'cliowl',
 		'USER' => 'root',
-		'PASSWORD' => 'root'
+		'PASSWORD' => 'root',
+		'TB_PREFIX' => 'cliowl_'
 	);
 ?>
