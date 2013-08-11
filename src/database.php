@@ -48,7 +48,8 @@ class Database
 
 		mysql_select_db($DB["DATABASE"]) or 
 			die('Database#create_db error 3: ' . mysql_error());
-			
+		
+		// Creates the user table	
 		$query = 'CREATE TABLE ' . Database::tb('user') . '(' .
 			'id INT PRIMARY KEY AUTO_INCREMENT, ' .
 			'name VARCHAR(50) NOT NULL, ' .
@@ -56,6 +57,86 @@ class Database
 		
 		$result = mysql_query($query) or			
 			die('Database#create_db error 4: ' . mysql_error());
+		
+		// Creates the session table
+		$query = 'CREATE TABLE ' . Database::tb('session') . '(' .
+			'id INT PRIMARY KEY AUTO_INCREMENT, ' .
+			'token CHAR(32) NOT NULL, ' .
+			'user_id INT NOT NULL, ' .
+			'expires_at DATETIME NOT NULL)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 5: ' . mysql_error());
+		
+		$query = 'ALTER TABLE ' . Database::tb('session') .
+			' ADD CONSTRAINT fk_' . Database::tb('session') . '_user_id' .
+			' FOREIGN KEY(user_id)' .
+			' REFERENCES ' . Database::tb('user') . '(id)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 6: ' . mysql_error());
+		
+		// Creates the tag table
+		$query = 'CREATE TABLE ' . Database::tb('tag') . '(' .
+			'id INT PRIMARY KEY AUTO_INCREMENT, ' .
+			'name VARCHAR(100) NOT NULL, ' .
+			'user_id INT NOT NULL)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 7: ' . mysql_error());
+		
+		$query = 'ALTER TABLE ' . Database::tb('tag') .
+			' ADD CONSTRAINT fk_' . Database::tb('tag') . '_user_id' .
+			' FOREIGN KEY(user_id)' .
+			' REFERENCES ' . Database::tb('user') . '(id)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 8: ' . mysql_error());
+		
+		// Creates the post table
+		$query = 'CREATE TABLE ' . Database::tb('post') . '(' .
+			'id INT PRIMARY KEY AUTO_INCREMENT, ' .
+			'title VARCHAR(255) NOT NULL, ' .
+			'key VARCHAR(255) NOT NULL, ' .
+			'content TEXT NOT NULL, ' .
+			'created_at DATETIME NOT NULL, ' .
+			'updated_at DATETIME NOT NULL, ' .
+			'user_id INT NOT NULL)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 9: ' . mysql_error());
+		
+		$query = 'ALTER TABLE ' . Database::tb('post') .
+			' ADD CONSTRAINT fk_' . Database::tb('post') . '_user_id' .
+			' FOREIGN KEY(user_id)' .
+			' REFERENCES ' . Database::tb('user') . '(id)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 10: ' . mysql_error());
+		
+		// Creates the tag-post table
+		$query = 'CREATE TABLE ' . Database::tb('tag_post') . '(' .
+			'id_tag INT NOT NULL, ' .
+			'id_post INT NOT NULL)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 11: ' . mysql_error());
+		
+		$query = 'ALTER TABLE ' . Database::tb('tag_post') .
+			' ADD CONSTRAINT fk_' . Database::tb('tag_post') . '_user_id' .
+			' FOREIGN KEY(user_id)' .
+			' REFERENCES ' . Database::tb('tag') . '(id)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 12: ' . mysql_error());
+		
+		$query = 'ALTER TABLE ' . Database::tb('tag_post') .
+			' ADD CONSTRAINT fk_' . Database::tb('tag_post') . '_user_id' .
+			' FOREIGN KEY(user_id)' .
+			' REFERENCES ' . Database::tb('post') . '(id)';
+		
+		$result = mysql_query($query) or			
+			die('Database#create_db error 13: ' . mysql_error());
 	}
 	
 	/**
