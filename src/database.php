@@ -14,13 +14,22 @@ class Database
 	{
 		global $DB;
 		
-		mysql_connect($DB["SERVER"], $DB["USER"], $DB["PASSWORD"]) or 
-			die('Database#connect error 1: ' . mysql_error());
-
-		mysql_select_db($DB["DATABASE"]) or 
-			die('Database#connect error 2: ' . mysql_error());
+		$con = new mysqli($DB["SERVER"], $DB["USER"], $DB["PASSWORD"], $DB["DATABASE"]);
+		
+		if($con->connect_error)
+			die('Database#connect error: ' . $con->connect_error);
+		
+		return $con;
 	}
 	
+	/**
+	 * Close the connection 
+	*/
+	public static function disconnect($connection)
+	{
+		$connection->close();
+	}
+
 	/**
 	 * Get table name with prefix
 	*/
@@ -30,6 +39,18 @@ class Database
 		return $DB["TB_PREFIX"] . strtolower($table);
 	}
 
+	
+	/**
+	 * Get the SQL to add a foreign key to a table 
+	*/
+	public static function fk($src_table, $src_field, $tgt_table, $tgt_field)
+	{
+		return 'ALTER TABLE ' . $src_table .
+			' ADD CONSTRAINT fk_' . $src_table . '_' . $src_field .
+			' FOREIGN KEY(' . $src_field . ')' .
+			' REFERENCES ' . $tgt_table . '(' . $tgt_field . ')';
+	}
+
 	/**
 	 * Creates the necessary database tables
 	*/
@@ -37,17 +58,19 @@ class Database
 	{
 		global $DB;
 		
-		mysql_connect($DB["SERVER"], $DB["USER"], $DB["PASSWORD"]) or 
-			die('Database#create_db error 1: ' . mysql_error());
+		$con = new mysqli($DB["SERVER"], $DB["USER"], $DB["PASSWORD"]); 
+		
+		if($con->connect_error)
+			die('Database#create_db error 1: ' . $con->connect_error);
 		
 		// Creates the database
 		$query = 'CREATE DATABASE IF NOT EXISTS ' . $DB["DATABASE"];
 		
-		$result = mysql_query($query) or				
-			die('Database#create_db error 2: ' . mysql_error());
+		$result = $con->query($query) or				
+			die('Database#create_db error 2: ' . $con->error);
 
-		mysql_select_db($DB["DATABASE"]) or 
-			die('Database#create_db error 3: ' . mysql_error());
+		$con->select_db($DB["DATABASE"]) or 
+			die('Database#create_db error 3: ' . $con->error);
 		
 		// Creates the user table	
 		$query = 'CREATE TABLE ' . Database::tb('user') . '(' .
@@ -55,8 +78,8 @@ class Database
 			'name VARCHAR(50) NOT NULL, ' .
 			'password VARCHAR(32) NOT NULL )';
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 4: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 4: ' . $con->error);
 		
 		// Creates the session table
 		$query = 'CREATE TABLE ' . Database::tb('session') . '(' .
@@ -65,16 +88,13 @@ class Database
 			'user_id INT NOT NULL, ' .
 			'expires_at DATETIME NOT NULL)';
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 5: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 5: ' . $con->error);
 		
-		$query = 'ALTER TABLE ' . Database::tb('session') .
-			' ADD CONSTRAINT fk_' . Database::tb('session') . '_user_id' .
-			' FOREIGN KEY(user_id)' .
-			' REFERENCES ' . Database::tb('user') . '(id)';
+		$query = Database::fk(Database::tb('session'), 'user_id', Database::tb('user'), 'id');
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 6: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 6: ' . $con->error);
 		
 		// Creates the tag table
 		$query = 'CREATE TABLE ' . Database::tb('tag') . '(' .
@@ -82,61 +102,51 @@ class Database
 			'name VARCHAR(100) NOT NULL, ' .
 			'user_id INT NOT NULL)';
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 7: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 7: ' . $con->error);
 		
-		$query = 'ALTER TABLE ' . Database::tb('tag') .
-			' ADD CONSTRAINT fk_' . Database::tb('tag') . '_user_id' .
-			' FOREIGN KEY(user_id)' .
-			' REFERENCES ' . Database::tb('user') . '(id)';
+		$query = Database::fk(Database::tb('tag'), 'user_id', Database::tb('user'), 'id');
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 8: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 8: ' . $con->error);
 		
 		// Creates the post table
 		$query = 'CREATE TABLE ' . Database::tb('post') . '(' .
 			'id INT PRIMARY KEY AUTO_INCREMENT, ' .
 			'title VARCHAR(255) NOT NULL, ' .
-			'key VARCHAR(255) NOT NULL, ' .
+			'key_name VARCHAR(255) NOT NULL, ' .
 			'content TEXT NOT NULL, ' .
 			'created_at DATETIME NOT NULL, ' .
 			'updated_at DATETIME NOT NULL, ' .
 			'user_id INT NOT NULL)';
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 9: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 9: ' . $con->error);
 		
-		$query = 'ALTER TABLE ' . Database::tb('post') .
-			' ADD CONSTRAINT fk_' . Database::tb('post') . '_user_id' .
-			' FOREIGN KEY(user_id)' .
-			' REFERENCES ' . Database::tb('user') . '(id)';
+		$query = Database::fk(Database::tb('post'), 'user_id', Database::tb('user'), 'id');
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 10: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 10: ' . $con->error);
 		
 		// Creates the tag-post table
 		$query = 'CREATE TABLE ' . Database::tb('tag_post') . '(' .
-			'id_tag INT NOT NULL, ' .
-			'id_post INT NOT NULL)';
+			'tag_id INT NOT NULL, ' .
+			'post_id INT NOT NULL)';
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 11: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 11: ' . $con->error);
 		
-		$query = 'ALTER TABLE ' . Database::tb('tag_post') .
-			' ADD CONSTRAINT fk_' . Database::tb('tag_post') . '_user_id' .
-			' FOREIGN KEY(user_id)' .
-			' REFERENCES ' . Database::tb('tag') . '(id)';
+		$query = Database::fk(Database::tb('tag_post'), 'tag_id', Database::tb('tag'), 'id');
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 12: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 12: ' . $con->error);
 		
-		$query = 'ALTER TABLE ' . Database::tb('tag_post') .
-			' ADD CONSTRAINT fk_' . Database::tb('tag_post') . '_user_id' .
-			' FOREIGN KEY(user_id)' .
-			' REFERENCES ' . Database::tb('post') . '(id)';
+		$query = Database::fk(Database::tb('tag_post'), 'post_id', Database::tb('post'), 'id');
 		
-		$result = mysql_query($query) or			
-			die('Database#create_db error 13: ' . mysql_error());
+		$result = $con->query($query) or			
+			die('Database#create_db error 13: ' . $con->error);
+		
+		Database::disconnect($con);
 	}
 	
 	/**
@@ -146,15 +156,17 @@ class Database
 	{
 		global $DB;
 		
-		mysql_connect($DB["SERVER"], $DB["USER"], $DB["PASSWORD"]) or 
-			die('Database#db_created error 1: ' . mysql_error());
+		$con = new mysqli($DB["SERVER"], $DB["USER"], $DB["PASSWORD"]); 
+		
+		if($con->connect_error)
+			die('Database#db_created error 1: ' . $con->connect_error);
 
-		if(!mysql_select_db($DB["DATABASE"])) 
+		if(!$con->select_db($DB["DATABASE"])) 
 			return false;
 
 		$query = 'SELECT * FROM ' . Database::tb('user') . ';';
 		
-		return mysql_query($query);
+		return $con->query($query);
 	}
 	
 	/**
@@ -162,27 +174,52 @@ class Database
 	*/
 	public static function create_user($user, $password)
 	{
-		Database::connect();
+		$con = Database::connect();
 		
-		$user2 = mysql_real_escape_string($user);
-		$password2 = mysql_real_escape_string(md5($password));
-		
-		$query = "INSERT INTO " . Database::tb('user') . "(name, password)" .
-			" VALUES('" . $user2 . "', '" . $password2 . "')";
+		$query = $con->prepare("INSERT INTO " . Database::tb('user') . "(name, password) VALUES(?, ?)");
+		$query->bind_param('ss', $user, md5($password));
 
-		$result = mysql_query($query) or				
-			die('Database#create_user error 1: ' . mysql_error());		
+		$result = $query->execute() or				
+			die('Database#create_user error 1: ' . $con->error);		
+
+		Database::disconnect($con);
 	}
 	
+	/**
+	 * Authenticates an user, returning true if the user and password are correct 
+	*/
 	public static function login($user, $password)
 	{
 		Database::connect();
+		$con = Database::connect();
 		
-		$token = '';
+		$query = $con->prepare("SELECT * FROM " . Database::tb('user') . " WHERE name = ? AND password = ?");
+		$query->bind_param('ss', $user, md5($password));
+
+		$result = $query->execute() or				
+			die('Database#create_user error 1: ' . $con->error);		
 		
-		// TODO: Check if this user exists with this password		
-		// TODO: Deletes all sessions of this user		
-		// TODO: Create a token and a session for this user
+		$query->store_result();
+		Database::disconnect($con);
+		return $query->num_rows == 1;
+	}
+	
+	/**
+	 * Return the user name if the token is valid, false otherwise
+	*/
+	public static function validate_session($token)
+	{
+		Database::connect();
+		
+		return $token;
+	}
+	
+	/**
+	 * Create a session for the user 
+	*/
+	public static function create_session($user, $token)
+	{
+		Database::connect();
 		
 		return $token;
 	}
