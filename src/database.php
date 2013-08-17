@@ -190,28 +190,18 @@ class Database
 	*/
 	public static function login($user, $password)
 	{
-		Database::connect();
 		$con = Database::connect();
 		
 		$query = $con->prepare("SELECT * FROM " . Database::tb('user') . " WHERE name = ? AND password = ?");
 		$query->bind_param('ss', $user, md5($password));
 
 		$result = $query->execute() or				
-			die('Database#create_user error 1: ' . $con->error);		
+			die('Database#create_user error 1: ' . $con->error);
 		
 		$query->store_result();
 		Database::disconnect($con);
-		return $query->num_rows == 1;
-	}
-	
-	/**
-	 * Return the user name if the token is valid, false otherwise
-	*/
-	public static function validate_session($token)
-	{
-		Database::connect();
 		
-		return $token;
+		return $query->num_rows == 1;
 	}
 	
 	/**
@@ -219,9 +209,103 @@ class Database
 	*/
 	public static function create_session($user, $token)
 	{
-		Database::connect();
+		global $CLIOWL;
 		
-		return $token;
+		$user_id = Database::get_user_id($user);		
+		$con = Database::connect();
+
+		// delete other sessions from this user
+		$st = $con->prepare("DELETE FROM " . Database::tb('session') . " WHERE user_id = ?");
+		$st->bind_param('i', $user_id);
+		
+		$result = $st->execute() or				
+			die('Database#create_session error 1: ' . $con->error);
+		
+		// gets session expiration date/time
+		$session_dur = $CLIOWL['SESSION'];		
+		$date = new DateTime('NOW');
+		$date->add(new DateInterval('PT' . $session_dur . 'M'));		
+		$expires_at = $date->format('Y-m-d H:i:s');
+		
+		$st = $con->prepare("INSERT INTO " . Database::tb('session') . "(token, user_id, expires_at)" .
+			" VALUES(?, ?, ?)");
+			
+		$st->bind_param('sis', $token, $user_id, $expires_at);
+		
+		$result = $st->execute() or				
+			die('Database#create_session error 2: ' . $con->error);
+	}
+	
+	/**
+	 * Return the user name if the token is valid, false otherwise
+	*/
+	public static function validate_session($token)
+	{
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT user_id FROM " . Database::tb('session') . 
+			" WHERE token = ? AND expires_at > NOW()");
+
+		$st->bind_param('s', $token);
+
+		$st->execute() or				
+			die('Database#validate_session error 1: ' . $con->error);		
+		
+		$st->bind_result($user_id);
+		
+		if($st->fetch())
+		{
+			$st->close();
+			Database::disconnect($con);
+		
+			$user_name = Database::get_user_name($user_id);
+		
+			return $user_name;
+		}
+		else
+			return false;
+	}
+	
+	/**
+	 * Get user id for a user name
+	*/
+	public static function get_user_id($user)
+	{
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT id FROM " . Database::tb('user') . " WHERE name = ?");
+		$st->bind_param('s', $user);
+
+		$st->execute() or				
+			die('Database#get_user_id error 1: ' . $con->error);		
+		
+		$st->bind_result($user_id);
+		$st->fetch();
+		$st->close();
+		Database::disconnect($con);
+		
+		return $user_id;
+	}
+	
+	/**
+	 * Get user name for a user ID
+	*/
+	public static function get_user_name($id)
+	{
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT name FROM " . Database::tb('user') . " WHERE id = ?");
+		$st->bind_param('i', $id);
+
+		$st->execute() or				
+			die('Database#get_user_name error 1: ' . $con->error);		
+		
+		$st->bind_result($user_name);
+		$st->fetch();
+		$st->close();
+		Database::disconnect($con);
+		
+		return $user_name;
 	}
 }
 

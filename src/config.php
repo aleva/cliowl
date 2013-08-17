@@ -7,4 +7,8 @@
 		'PASSWORD' => 'root',
 		'TB_PREFIX' => 'cliowl_'
 	);
+	
+	$CLIOWL = array(
+		'SESSION' => 20
+	);
 ?>
