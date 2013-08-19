@@ -3,9 +3,9 @@
 require "cliowl.php";
 require "util.php";
 
-$request_uri = $_SERVER["REQUEST_URI"];
+$request_uri = $_SERVER['REQUEST_URI'];
 $query_string = $_SERVER['QUERY_STRING'];
-$document = $_SERVER["PHP_SELF"];
+$document = $_SERVER['PHP_SELF'];
 $method = $_SERVER['REQUEST_METHOD'];
 
 $uri_parts = explode("index.php", $document);
@@ -16,68 +16,64 @@ if(count($uri_parts) != 2)
 }
 
 $tokens = explode("/", $uri_parts[1]);
+$tokens = array_slice($tokens, 1);
+$ntokens = count($tokens);
 
-if(count($tokens) < 2)
-{
+if($ntokens < 1)
 	die("Bad path.");
+
+if($ntokens > 1 && $tokens[$ntokens - 1] == '')
+{
+	$tokens = array_slice($tokens, 0, $ntokens - 1);
+	$ntokens = count($tokens);
 }
 
-$index = -1;
+$token = $tokens[0];
 
-foreach ($tokens as $token)
+if($token == 'fetch' && $ntokens == 1)
 {
-	$index++;
-	
-	if($token != '')
+	echo Cliowl::get_fetch();
+}
+else if($token == 'login' && $ntokens == 1)
+{
+	echo Cliowl::post_login($_POST["user"], $_POST["password"]);
+}
+else if($token == 'page')
+{
+	if($method == 'POST')
 	{
-		if($token == 'fetch')
+		$fileContent = '';
+		
+		if($_FILES['file']['size'] > 0)
 		{
-			echo Cliowl::get_fetch();
-		}
-		else if($token == 'login')
-		{
-			echo Cliowl::post_login($_POST["user"], $_POST["password"]);
-		}
-		else if($token == 'page')
-		{
-			if($method == 'POST')
-			{
-				$fileContent = '';
-				
-				if($_FILES['file']['size'] > 0)
-				{
-					$fileTmpName  = $_FILES['file']['tmp_name'];
-					$fileSize = $_FILES['file']['size'];
+			$fileTmpName  = $_FILES['file']['tmp_name'];
+			$fileSize = $_FILES['file']['size'];
 
-					$fp = fopen($fileTmpName, 'r');
-					$fileContent = fread($fp, filesize($fileTmpName));
-					fclose($fp);
-				}
-				
-				echo Cliowl::post_page(
-					$_POST["token"], $fileContent, $_POST["key"], $_POST["tags"], $_POST["title"]);
-			}
-			else
-			{
-				$user = $tokens[$index + 1];
-				$key = $tokens[$index + 2];
-				
-				echo Cliowl::get_page($user, $key);
-			}
-		}		
-		else
-		{
-			echo Util::error(array(
-				"URI" => $request_uri,
-				"query string" => $query_string,
-				"Document" => $document,
-				"Method" => $method,
-				"Unknown action" => $token
-			));
-			
-			break;
+			$fp = fopen($fileTmpName, 'r');
+			$fileContent = fread($fp, filesize($fileTmpName));
+			fclose($fp);
 		}
+		
+		echo Cliowl::post_page(
+			$_POST["token"], $fileContent, $_POST["key"], $_POST["tags"], $_POST["title"]);
 	}
+	else
+	{
+		$user = $tokens[1];
+		$key = $tokens[2];
+		
+		echo Cliowl::get_page($user, $key);
+	}
+}		
+else
+{
+	echo Util::error(array(
+		"URI" => $request_uri,
+		"query string" => $query_string,
+		"Document" => $document,
+		"Method" => $method,
+		"Action" => $token
+	));
 }
 
 ?>
