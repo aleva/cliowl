@@ -1,5 +1,7 @@
 <?php
 
+require 'database.php';
+
 /**
  * Class that represents the CLIOWL public API
 */
@@ -46,7 +48,15 @@ class Cliowl
 	*/
 	public static function post_login($user, $password)
 	{
-		return '';
+		if(Database::login($user, $password))
+		{
+			$token = md5(rand());
+			
+			Database::create_session($user, $token);
+			return $token;
+		}
+		else
+			return Cliowl::$failure;
 	}
 	
 	/**
@@ -65,15 +75,29 @@ class Cliowl
 	 * Creates or updates the page sent by the user. Requires authentication
 	 *
 	 * @param	string	$token	the authentication token returned by the login method
-	 * @param	string	$content	the new post content (Markdown format)
+	 * @param	string	$file	the new post content (Markdown format)
 	 * @param	string	$key	key name of the new page
 	 * @param	string	$tags	a list of comma separated tags
 	 * @param	string	$title	page title
-	 * @return	string	success message if succeded, error message otherwise
+	 * @return	string	success message if succeeded, error message otherwise
 	*/
-	public static function post_page($token, $content, $key = '', $tags = '', $title = '')
+	public static function post_page($token, $file, $key = '', $tags = '', $title = '')
 	{
-		return '';
+		if(!($user_name = Database::validate_session($token)))
+			return Cliowl::$failure;
+		
+		if($page_id = Database::get_page_id($user_name, $key))
+		{
+			// Page exists, update page
+			$result = Database::update_page($page_id, $file, $tags, $title);
+		}
+		else
+		{
+			// New page
+			$result = Database::create_page($file, $key, $tags, $title, $user_name);
+		}
+		
+		return $result === true ? Cliowl::$success : Cliowl::$failure;
 	}
 	
 	/**
@@ -81,7 +105,7 @@ class Cliowl
 	 *
 	 * @param	string	$token	the authentication token returned by the login method
 	 * @param	string	$key	key name of the page
-	 * @return	string	success message if succeded, error message otherwise
+	 * @return	string	success message if succeeded, error message otherwise
 	*/
 	public static function get_remove($token, $key)
 	{
@@ -94,7 +118,7 @@ class Cliowl
 	 * @param	string	$token	the authentication token returned by the login method
 	 * @param	string	$key	key name of the configuration option
 	 * @param	string	$value	value to set into this configuration option
-	 * @return	string	success message if succeded, error message otherwise
+	 * @return	string	success message if succeeded, error message otherwise
 	*/
 	public static function post_config($token, $key, $value)
 	{
