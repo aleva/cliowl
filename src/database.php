@@ -379,6 +379,8 @@ class Database
 		$result = $st->execute() or				
 			die('Database#create_page error 1: ' . $con->error);
 		
+		// TODO: save the tags in the tags table		
+
 		return true;
 	}
 	
@@ -387,8 +389,40 @@ class Database
 	*/
 	public static function update_page($page_id, $content, $tags, $title)
 	{
-		// If title is empty, do not update it
+		$user_id = Database::get_user_id($user_name);
+		$con = Database::connect();
+		
+		// If title is empty do not update it
+		if($title != '')
+		{
+			$st = $con->prepare("UPDATE " . Database::tb('post') . 
+				"SET title = ?, content = ?, updated_at = NOW()" .
+				" WHERE id = ?");
+			
+			$st->bind_param('ssi', $title, $content, $page_id);
+		}
+		else
+		{
+			$st = $con->prepare("UPDATE " . Database::tb('post') . 
+				"SET content = ?, updated_at = NOW()" .
+				" WHERE id = ?");
+			
+			$st->bind_param('si', $content, $page_id);
+		}
+
+		$result = $st->execute() or				
+			die('Database#update_page error 1: ' . $con->error);
+		
+		// TODO: save the tags in the tags table		
+
+		return true;
 	}
+	
+	// TODO: function set_post_tags
+	// for each tag call create_tag_if_new (and get the tag ID)
+	// get the ID of all tags this post already have
+	// delete associations of tags that is not in the list of retrieved tags
+	// for each tag, if new, add an association with the post
 }
 
 ?>
