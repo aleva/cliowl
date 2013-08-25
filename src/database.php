@@ -658,6 +658,35 @@ class Database
 			return $id;
 		}		
 	}
+
+	/**
+	 * Get a list of posts
+	*/
+	public static function get_posts($user, $from = '', $to = '', $tags = '')
+	{
+		$user_id = Database::get_user_id($user);
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT key_name, title, created_at, updated_at FROM " . Database::tb('post') . " WHERE user_id = ?");
+		$st->bind_param('i', $user_id);
+
+		$st->execute() or				
+			die('Database#get_posts error 1: ' . $con->error);		
+
+		$posts = array();	
+	
+		$st->bind_result($key_name, $title, $created_at, $updated_at);
+
+		while($st->fetch())
+		{
+			array_push($posts, array("key" => $key_name, "name" => $title, "date" => $updated_at));
+		}
+
+		$st->close();
+		Database::disconnect($con);
+		
+		return $posts;
+	}
 }
 
 ?>

@@ -147,7 +147,10 @@ class Cliowl
 	*/
 	public static function get_list($user, $from = '', $to = '', $tags = '')
 	{
-		return '';
+		if($result = Database::get_posts($user, $from, $to, $tags))
+			return json_encode($result);
+
+		return Cliowl::$failure;
 	}
 }
 
