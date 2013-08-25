@@ -307,9 +307,9 @@ class Database
 	}
 	
 	/**
-	 * Get page content
+	 * Get post content
 	*/
-	public static function get_page_content($user_name, $key)
+	public static function get_post_content($user_name, $key)
 	{
 		$user_id = Database::get_user_id($user_name);
 
@@ -319,7 +319,7 @@ class Database
 		$st->bind_param('is', $user_id, $key);
 
 		$st->execute() or				
-			die('Database#get_page_content error 1: ' . $con->error);		
+			die('Database#get_post_content error 1: ' . $con->error);		
 		
 		$st->bind_result($content);
 		
@@ -335,9 +335,9 @@ class Database
 	}
 	
 	/**
-	 * Get page ID
+	 * Get post ID
 	*/
-	public static function get_page_id($user_name, $key)
+	public static function get_post_id($user_name, $key)
 	{
 		$user_id = Database::get_user_id($user_name);
 
@@ -347,7 +347,7 @@ class Database
 		$st->bind_param('is', $user_id, $key);
 
 		$st->execute() or				
-			die('Database#get_page_content error 1: ' . $con->error);		
+			die('Database#get_post_content error 1: ' . $con->error);		
 		
 		$st->bind_result($id);
 		
@@ -363,9 +363,9 @@ class Database
 	}
 	
 	/**
-	 * Creates a new page (post)
+	 * Creates a new post
 	*/
-	public static function create_page($content, $key, $tags, $title, $user_name)
+	public static function create_post($content, $key, $tags, $title, $user_name)
 	{
 		$user_id = Database::get_user_id($user_name);
 		$con = Database::connect();
@@ -377,7 +377,7 @@ class Database
 		$st->bind_param('sssi', $title, $key, $content, $user_id);
 		
 		$result = $st->execute() or				
-			die('Database#create_page error 1: ' . $con->error);
+			die('Database#create_post error 1: ' . $con->error);
 		
 		// TODO: save the tags in the tags table		
 
@@ -385,9 +385,9 @@ class Database
 	}
 	
 	/**
-	 * Updates an existing page (post)
+	 * Updates an existing post (post)
 	*/
-	public static function update_page($page_id, $content, $tags, $title)
+	public static function update_post($post_id, $content, $tags, $title)
 	{
 		$user_id = Database::get_user_id($user_name);
 		$con = Database::connect();
@@ -399,7 +399,7 @@ class Database
 				"SET title = ?, content = ?, updated_at = NOW()" .
 				" WHERE id = ?");
 			
-			$st->bind_param('ssi', $title, $content, $page_id);
+			$st->bind_param('ssi', $title, $content, $post_id);
 		}
 		else
 		{
@@ -407,22 +407,129 @@ class Database
 				"SET content = ?, updated_at = NOW()" .
 				" WHERE id = ?");
 			
-			$st->bind_param('si', $content, $page_id);
+			$st->bind_param('si', $content, $post_id);
 		}
 
 		$result = $st->execute() or				
-			die('Database#update_page error 1: ' . $con->error);
+			die('Database#update_post error 1: ' . $con->error);
 		
 		// TODO: save the tags in the tags table		
 
 		return true;
 	}
 	
-	// TODO: function set_post_tags
-	// for each tag call create_tag_if_new (and get the tag ID)
-	// get the ID of all tags this post already have
-	// delete associations of tags that is not in the list of retrieved tags
-	// for each tag, if new, add an association with the post
+	/**
+	 * Associates tags with a post
+	*/
+	static function associate_tags($user_id, $post_id, $tags)
+	{
+		$tags_names = explode(",", $tags);
+		$new_tags_ids = array();
+				
+		for($i = 1; $i < count($tags); $i++)
+		{
+			$tag = trim($tags[$i]);			
+			$id = Database::save_tag($tag, $user_id);
+			
+			array_push($new_tags_ids, $id);
+		}
+		
+		$old_tags_ids = Database::get_post_tags_ids($post_id);
+		
+		// TODO: delete associations of tags that is not in the list of retrieved tags
+		// TODO: for each tag, if new, add an association with the post
+	}
+
+	/**
+	 * Removes tags associated with this post
+	*/
+	static function remove_tags_from_post($post_id, $tags_ids)
+	{
+		if(count($tags_ids) == 0) return;
+		
+		// Create the list of IDs
+		$ids = $tags_ids[0];
+		
+		for($i = 1; $i < count($tags_ids); $i++)
+			$ids .= ',' . $tags_ids[$i];
+			
+		$con = Database::connect();
+		
+		$st = $con->prepare("DELETE FROM " . Database::tb('tag_post') .
+			" WHERE post_id = ? AND tag_id IN(" . $ids . ")");
+			
+		$st->bind_param('i', $post_id);
+		
+		$result = $st->execute() or				
+			die('Database#remove_tags_from_post error 1: ' . $con->error);
+	}
+
+	/**
+	 * Gets the IDs of all tags associated with this post
+	*/
+	static function get_post_tags_ids($post_id)
+	{
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT tag_id FROM " . Database::tb('tag_post') . 
+			" WHERE post_id = ?");
+			
+		$st->bind_param('i', $post_id);
+
+		$st->execute() or				
+			die('Database#get_post_content error 1: ' . $con->error);		
+		
+		$st->bind_result($id);		
+		$ids = array();
+		
+		while($st->fetch())	
+			array_push($ids, $id);		
+		
+		$st->close();
+		Database::disconnect($con);
+		
+		return $ids;
+	}
+		
+	/**
+	 * Insert a new tag in the database (if it does not exist) and return its ID
+	*/
+	static function save_tag($name, $user_id)
+	{
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT id FROM " . Database::tb('tag') . 
+			" WHERE user_id = ? AND name = ?");
+			
+		$st->bind_param('is', $user_id, $name);
+
+		$st->execute() or
+			die('Database#save_tag error 1: ' . $con->error);	
+		
+		$st->bind_result($id);
+		$exists = $st->fetch();
+		$st->close();
+		
+		if($exists)
+		{
+			Database::disconnect($con);
+			return $id;
+		}
+		else
+		{
+			$st = $con->prepare("INSERT INTO " . Database::tb('tag') . 
+				"(name, user_id) VALUES(?, ?)");
+			
+			$st->bind_param('si', $name, $user_id);
+		
+			$result = $st->execute() or
+				die('Database#save_tag error 2: ' . $con->error);
+		
+			$id = $con->insert_id;
+			Database::disconnect($con);
+			return $id;
+		}		
+	}
 }
 
 ?>

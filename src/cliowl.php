@@ -86,15 +86,15 @@ class Cliowl
 		if(!($user_name = Database::validate_session($token)))
 			return Cliowl::$failure;
 		
-		if($page_id = Database::get_page_id($user_name, $key))
+		if($page_id = Database::get_post_id($user_name, $key))
 		{
 			// Page exists, update page
-			$result = Database::update_page($page_id, $file, $tags, $title);
+			$result = Database::update_post($page_id, $file, $tags, $title);
 		}
 		else
 		{
 			// New page
-			$result = Database::create_page($file, $key, $tags, $title, $user_name);
+			$result = Database::create_post($file, $key, $tags, $title, $user_name);
 		}
 		
 		return $result === true ? Cliowl::$success : Cliowl::$failure;
