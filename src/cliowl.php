@@ -135,6 +135,20 @@ class Cliowl
 	{
 		return '';
 	}
+
+	/**
+	 * Get a list of posts, filtering by some criteria
+	 *
+	 * @param	string	user	user whose posts will be retrieved
+	 * @param	string	from	posts before this date will not be retrieved
+	 * @param	string	to		posts after this date will not be retrieved
+	 * @param	string	tags	only posts with all this tags will be brought
+	 * @return	string	post list in JSON format, or error message
+	*/
+	public static function get_list($user, $from = '', $to = '', $tags = '')
+	{
+		return '';
+	}
 }
 
 ?>

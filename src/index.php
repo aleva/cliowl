@@ -42,6 +42,15 @@ else if($token == 'remove' && $ntokens == 3)
 {
 	echo Cliowl::get_remove($tokens[1], $tokens[2]);
 }
+else if($token == 'list' && $ntokens >= 2 && $ntokens <= 5)
+{
+	$user = $tokens[1];
+	$date_from = $ntokens > 2 ? $tokens[2] : '';
+	$date_to = $ntokens > 3 ? $tokens[3] : '';
+	$tags = $ntokens > 4 ? $tokens[4] : '';
+
+	echo Cliowl::get_list($user, $date_from, $date_to, $tags);
+}
 else if($token == 'page')
 {
 	if($method == 'POST')
