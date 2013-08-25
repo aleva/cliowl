@@ -28,7 +28,7 @@ if($ntokens > 1 && $tokens[$ntokens - 1] == '')
 	$ntokens = count($tokens);
 }
 
-$token = $tokens[0];
+$token = strtolower($tokens[0]);
 
 if($token == 'fetch' && $ntokens == 1)
 {
@@ -37,6 +37,10 @@ if($token == 'fetch' && $ntokens == 1)
 else if($token == 'login' && $ntokens == 1)
 {
 	echo Cliowl::post_login($_POST["user"], $_POST["password"]);
+}
+else if($token == 'remove' && $ntokens == 3)
+{
+	echo Cliowl::get_remove($tokens[1], $tokens[2]);
 }
 else if($token == 'page')
 {

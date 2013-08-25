@@ -50,6 +50,9 @@ class Cliowl
 	{
 		if(Database::login($user, $password))
 		{
+			if($token = Database::validate_user_session($user))
+				return $token;
+
 			$token = md5(rand());
 			
 			Database::create_session($user, $token);
@@ -68,6 +71,9 @@ class Cliowl
 	*/
 	public static function get_page($user, $key)
 	{
+		if($content = Database::get_post_content($user, $key))
+			return $content;
+
 		return '';
 	}
 	
@@ -89,27 +95,32 @@ class Cliowl
 		if($page_id = Database::get_post_id($user_name, $key))
 		{
 			// Page exists, update page
-			$result = Database::update_post($page_id, $file, $tags, $title);
+			$result = Database::update_post($page_id, $file, $tags, $title, $user_name);
 		}
 		else
 		{
 			// New page
 			$result = Database::create_post($file, $key, $tags, $title, $user_name);
 		}
-		
+
 		return $result === true ? Cliowl::$success : Cliowl::$failure;
 	}
 	
 	/**
 	 * Removes the page identified by the specified key. Requires authentication
 	 *
-	 * @param	string	$token	the authentication token returned by the login method
 	 * @param	string	$key	key name of the page
+	 * @param	string	$token	the authentication token returned by the login method
 	 * @return	string	success message if succeeded, error message otherwise
 	*/
-	public static function get_remove($token, $key)
+	public static function get_remove($key, $token)
 	{
-		return '';
+		if(!($user_name = Database::validate_session($token)))
+			return Cliowl::$failure;
+
+		$result = Database::remove_post($user_name, $key);
+
+		return $result === true ? Cliowl::$success : Cliowl::$failure;
 	}
 	
 	/**

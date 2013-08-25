@@ -265,6 +265,62 @@ class Database
 	}
 	
 	/**
+	 * If user has a session, renews it and returns the token
+	*/
+	public static function validate_user_session($user_name)
+	{
+		$user_id = Database::get_user_id($user_name);
+		$con = Database::connect();
+		
+		$st = $con->prepare("SELECT token FROM " . Database::tb('session') . 
+			" WHERE user_id = ? AND expires_at > NOW()");
+
+		$st->bind_param('i', $user_id);
+
+		$st->execute() or				
+			die('Database#validate_user_session error 1: ' . $con->error);		
+		
+		$st->bind_result($token);
+		
+		if($st->fetch())
+		{
+			$result = $token;
+			Database::renew_session($user_id);
+		}
+		else
+			$result = false;
+
+		$st->close();
+		Database::disconnect($con);
+		
+		return $result;
+	}
+
+	/**
+	 * Renews the user session, extending the expiration date 
+	*/
+	public static function renew_session($user_id)
+	{
+		global $CLIOWL;
+		
+		$con = Database::connect();
+
+		// gets session expiration date/time
+		$session_dur = $CLIOWL['SESSION'];		
+		$date = new DateTime('NOW');
+		$date->add(new DateInterval('PT' . $session_dur . 'M'));		
+		$expires_at = $date->format('Y-m-d H:i:s');
+		
+		$st = $con->prepare("UPDATE " . Database::tb('session') . " SET expires_at = ?" .
+			" WHERE user_id = ?");
+			
+		$st->bind_param('si', $expires_at, $user_id);
+		
+		$result = $st->execute() or				
+			die('Database#renew_session error 1: ' . $con->error);
+	}
+
+	/**
 	 * Get user id for a user name
 	*/
 	public static function get_user_id($user)
@@ -379,7 +435,25 @@ class Database
 		$result = $st->execute() or				
 			die('Database#create_post error 1: ' . $con->error);
 		
-		// TODO: save the tags in the tags table		
+		Database::associate_tags($user_id, $con->insert_id, $tags);
+
+		return true;
+	}
+
+	/**
+	 * Removes a post 
+	*/
+	public static function remove_post($user_name, $post_key)
+	{
+		$user_id = Database::get_user_id($user_name);
+		$con = Database::connect();
+
+		$st = $con->prepare("DELETE FROM " . Database::tb('post') . 
+			" WHERE user_id = ? AND key_name = ?");
+		$st->bind_param('is', $user_id, $post_key);
+		
+		$result = $st->execute() or				
+			die('Database#remove_post error 1: ' . $con->error);
 
 		return true;
 	}
@@ -387,7 +461,7 @@ class Database
 	/**
 	 * Updates an existing post (post)
 	*/
-	public static function update_post($post_id, $content, $tags, $title)
+	public static function update_post($post_id, $content, $tags, $title, $user_name)
 	{
 		$user_id = Database::get_user_id($user_name);
 		$con = Database::connect();
@@ -396,7 +470,7 @@ class Database
 		if($title != '')
 		{
 			$st = $con->prepare("UPDATE " . Database::tb('post') . 
-				"SET title = ?, content = ?, updated_at = NOW()" .
+				" SET title = ?, content = ?, updated_at = NOW()" .
 				" WHERE id = ?");
 			
 			$st->bind_param('ssi', $title, $content, $post_id);
@@ -404,7 +478,7 @@ class Database
 		else
 		{
 			$st = $con->prepare("UPDATE " . Database::tb('post') . 
-				"SET content = ?, updated_at = NOW()" .
+				" SET content = ?, updated_at = NOW()" .
 				" WHERE id = ?");
 			
 			$st->bind_param('si', $content, $post_id);
@@ -412,8 +486,8 @@ class Database
 
 		$result = $st->execute() or				
 			die('Database#update_post error 1: ' . $con->error);
-		
-		// TODO: save the tags in the tags table		
+
+		Database::associate_tags($user_id, $post_id, $tags);
 
 		return true;
 	}
@@ -436,8 +510,35 @@ class Database
 		
 		$old_tags_ids = Database::get_post_tags_ids($post_id);
 		
-		// TODO: delete associations of tags that is not in the list of retrieved tags
-		// TODO: for each tag, if new, add an association with the post
+		$tags_to_remove = array();
+
+		// For old tags that are not in the new tags set
+		for($i = 0; $i < count($old_tags_ids); $i++)
+		{
+			if(!array_in($old_tags_ids[$i], $new_tags_ids))
+			{
+				array_push($tags_to_remove, $old_tags_ids[$i]);
+			}	
+		}
+
+		Database::remove_tags_from_post($post_id, $tags_to_remove);
+
+		// For new tags that were not in the old tags set
+		for($i = 0; $i < count($new_tags_ids); $i++)
+		{
+			if(!array_in($new_tags_ids[$i], $old_tags_ids))
+			{
+				$con = Database::connect();
+		
+				$query = $con->prepare("INSERT INTO " . Database::tb('tag_post') . "(post_id, tag_id) VALUES(?, ?)");
+				$query->bind_param('ii', $post_id, $new_tags_ids[$i]);
+
+				$result = $query->execute() or				
+					die('Database#associate_tags error 1: ' . $con->error);		
+
+				Database::disconnect($con);
+			}	
+		}
 	}
 
 	/**
@@ -477,7 +578,7 @@ class Database
 		$st->bind_param('i', $post_id);
 
 		$st->execute() or				
-			die('Database#get_post_content error 1: ' . $con->error);		
+			die('Database#get_post_tags_ids error 1: ' . $con->error);		
 		
 		$st->bind_result($id);		
 		$ids = array();
