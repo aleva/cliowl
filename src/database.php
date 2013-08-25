@@ -446,14 +446,41 @@ class Database
 	public static function remove_post($user_name, $post_key)
 	{
 		$user_id = Database::get_user_id($user_name);
+
 		$con = Database::connect();
 
+		// Gets the post ID
+		$st = $con->prepare("SELECT id FROM " . Database::tb('post') . " WHERE user_id = ? AND key_name = ?");
+		$st->bind_param('is', $user_id, $post_key);
+
+		$st->execute() or				
+			die('Database#remove_post error 1: ' . $con->error);		
+		
+		$st->bind_result($post_id);
+		
+		if($st->fetch())
+			$result = $post_id;
+		else
+			$result = false;			
+		
+		$st->close();
+		if(!$result) return false;
+
+		// Removes tags associations
+		$st = $con->prepare("DELETE FROM " . Database::tb('tag_post') . 
+			" WHERE post_id = ?");
+		$st->bind_param('i', $post_id);
+		
+		$result = $st->execute() or				
+			die('Database#remove_post error 2: ' . $con->error);
+
+		// Deletes the post
 		$st = $con->prepare("DELETE FROM " . Database::tb('post') . 
 			" WHERE user_id = ? AND key_name = ?");
 		$st->bind_param('is', $user_id, $post_key);
 		
 		$result = $st->execute() or				
-			die('Database#remove_post error 1: ' . $con->error);
+			die('Database#remove_post error 3: ' . $con->error);
 
 		return true;
 	}
@@ -500,9 +527,9 @@ class Database
 		$tags_names = explode(",", $tags);
 		$new_tags_ids = array();
 				
-		for($i = 1; $i < count($tags); $i++)
+		for($i = 0; $i < count($tags_names); $i++)
 		{
-			$tag = trim($tags[$i]);			
+			$tag = trim($tags_names[$i]);			
 			$id = Database::save_tag($tag, $user_id);
 			
 			array_push($new_tags_ids, $id);
@@ -515,7 +542,7 @@ class Database
 		// For old tags that are not in the new tags set
 		for($i = 0; $i < count($old_tags_ids); $i++)
 		{
-			if(!array_in($old_tags_ids[$i], $new_tags_ids))
+			if(!in_array($old_tags_ids[$i], $new_tags_ids))
 			{
 				array_push($tags_to_remove, $old_tags_ids[$i]);
 			}	
@@ -526,7 +553,7 @@ class Database
 		// For new tags that were not in the old tags set
 		for($i = 0; $i < count($new_tags_ids); $i++)
 		{
-			if(!array_in($new_tags_ids[$i], $old_tags_ids))
+			if(!in_array($new_tags_ids[$i], $old_tags_ids))
 			{
 				$con = Database::connect();
 		
